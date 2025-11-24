@@ -53,8 +53,7 @@ if user_prompt:
     # Prepare to display the assistant's response
     with st.chat_message("assistant"):
         try:
-            # Send the message and request a streamed response for better user experience
-            response_stream = st.session_state.chat_session.send_message(user_prompt, stream=True)
+            response_stream = st.session_state.chat_session.send_message_stream(user_prompt)
             
             # Use st.write_stream to write the chunks of the streamed response
             st.write_stream(response_stream)
