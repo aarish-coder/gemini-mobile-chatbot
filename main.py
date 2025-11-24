@@ -6,7 +6,7 @@ from google.genai.errors import APIError
 # --- 1. CONFIGURATION AND INITIALIZATION ---
 
 st.title("🤖 Spark: Your Friendly AI Assistant")
-    def stream_text_generator(response_stream):
+def stream_text_generator(response_stream):
     """
     A generator that extracts only the text from the streamed chunks.
     """
