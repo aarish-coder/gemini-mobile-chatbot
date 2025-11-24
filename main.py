@@ -54,10 +54,7 @@ if user_prompt:
     with st.chat_message("assistant"):
         try:
             response_stream = st.session_state.chat_session.send_message_stream(user_prompt)
-            
-            # Use st.write_stream to write the chunks of the streamed response
-            st.write_stream(response_stream)
-
+            st.write_stream(stream_text_generator(response_stream))
         except APIError as e:
             # Handle specific API errors gracefully
             if "400" in str(e) and "API key not valid" in str(e):
