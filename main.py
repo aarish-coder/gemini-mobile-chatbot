@@ -6,14 +6,6 @@ from google.genai.errors import APIError
 # --- 1. CONFIGURATION AND INITIALIZATION ---
 
 st.title("🤖 Spark: Your Friendly AI Assistant")
-
-# Retrieve the API key
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not GEMINI_API_KEY:
-    # Stop execution if the key is missing
-    st.error("🚨 **API Key Missing!** 🚨\nPlease set the `GEMINI_API_KEY` environment variable in your terminal before running the app.")
-    st.stop()
     def stream_text_generator(response_stream):
     """
     A generator that extracts only the text from the streamed chunks.
@@ -22,6 +14,15 @@ if not GEMINI_API_KEY:
         # Check if the chunk has text content before yielding
         if chunk.text:
             yield chunk.text
+
+
+# Retrieve the API key
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not GEMINI_API_KEY:
+    # Stop execution if the key is missing
+    st.error("🚨 **API Key Missing!** 🚨\nPlease set the `GEMINI_API_KEY` environment variable in your terminal before running the app.")
+    st.stop()
 
 # Initialize Gemini client and store in session_state
 if "gemini_client" not in st.session_state:
