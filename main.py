@@ -21,7 +21,7 @@ if "gemini_client" not in st.session_state:
 
 # Use 1.5-flash to avoid daily quota limits
 if "chat_session" not in st.session_state:
-    st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-2.0-flash")
+    st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-1.5-flash")
 
 # --- 2. VOICE OUTPUT ---
 def speak_text(text):
@@ -41,7 +41,7 @@ with st.sidebar:
     
     # Reset Button to clear quota-heavy history
     if st.button("🗑️ Clear Chat"):
-        st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-2.0-flash")
+        st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-1.5-flash")
         st.rerun()
 
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
@@ -57,19 +57,20 @@ for message in st.session_state.chat_session.get_history():
     role = "user" if message.role == "user" else "assistant"
     with st.chat_message(role):
         for part in message.parts:
-            # Handle Text
+            # 1. Handle Text
             if hasattr(part, 'text') and part.text:
                 st.markdown(part.text)
             
-            # Handle Images (Consolidated & Safe)
+            # 2. Handle Images (The fix for PIL.UnidentifiedImageError)
             if hasattr(part, 'inline_data') and part.inline_data:
-                if part.inline_data.data: 
-                    try:
-                        st.image(part.inline_data.data)
-                    except Exception:
-                        st.warning("⚠️ Could not display a previously sent image.")
-                else:
-                    st.info("No image data found in this message part.")
+                try:
+                    # Gemini sends history images as base64 strings
+                    # We decode that string back into image bytes
+                    img_data = base64.b64decode(part.inline_data.data)
+                    st.image(img_data)
+                except Exception:
+                    # Fallback: if it's already bytes, st.image handles it
+                    st.image(part.inline_data.data)
                     
 # --- 5. INPUT HANDLING ---
 user_text = st.chat_input("Type here...")
