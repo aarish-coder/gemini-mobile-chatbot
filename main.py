@@ -19,6 +19,7 @@ if not GEMINI_API_KEY:
 if "gemini_client" not in st.session_state:
     st.session_state.gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
+# Use 1.5-flash to avoid daily quota limits
 if "chat_session" not in st.session_state:
     st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-1.5-flash")
 
@@ -37,6 +38,12 @@ def speak_text(text):
 # --- 3. UI SIDEBAR ---
 with st.sidebar:
     st.header("🎙️ Voice & 📸 Vision")
+    
+    # Reset Button to clear quota-heavy history
+    if st.button("🗑️ Clear Chat"):
+        st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-1.5-flash")
+        st.rerun()
+
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
     if uploaded_file:
         st.image(uploaded_file, caption="Image Ready")
@@ -61,30 +68,24 @@ user_text = st.chat_input("Type here...")
 if user_text or audio_bytes or uploaded_file:
     payload = []
     
-    # Text Input
     if user_text:
         payload.append(user_text)
     
-    # Audio Input
     if audio_bytes:
         payload.append({"mime_type": "audio/wav", "data": audio_bytes})
         if not user_text:
             payload.append("Please respond to this voice message.")
 
-    # Image Input
     if uploaded_file:
         payload.append({"mime_type": "image/jpeg", "data": uploaded_file.getvalue()})
 
-    # Display User Input
     with st.chat_message("user"):
         if user_text: st.markdown(user_text)
         if audio_bytes: st.audio(audio_bytes)
         if uploaded_file: st.image(uploaded_file)
 
-    # Get Response
     with st.chat_message("assistant"):
         try:
-            # We use send_message here to avoid the 'list' error with streaming
             response = st.session_state.chat_session.send_message(message=payload)
             st.markdown(response.text)
             speak_text(response.text)
