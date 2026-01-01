@@ -20,7 +20,7 @@ if "gemini_client" not in st.session_state:
     st.session_state.gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 if "chat_session" not in st.session_state:
-    st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-2.0-flash")
+    st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-1.5-flash")
 
 # --- 2. VOICE OUTPUT ---
 def speak_text(text):
