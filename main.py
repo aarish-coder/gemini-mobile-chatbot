@@ -66,26 +66,41 @@ for message in st.session_state.chat_session.get_history():
 user_text = st.chat_input("Type here...")
 
 if user_text or audio_bytes or uploaded_file:
+    # Use types.Part to wrap multimodal data properly
+    from google.genai import types 
     payload = []
     
+    # Text Input
     if user_text:
-        payload.append(user_text)
+        payload.append(types.Part.from_text(text=user_text))
     
+    # Audio Input
     if audio_bytes:
-        payload.append({"mime_type": "audio/wav", "data": audio_bytes})
+        payload.append(types.Part.from_bytes(
+            data=audio_bytes, 
+            mime_type="audio/wav"
+        ))
+        # If no text was typed, give the model a hint
         if not user_text:
-            payload.append("Please respond to this voice message.")
+            payload.append(types.Part.from_text(text="Please respond to this voice message."))
 
+    # Image Input
     if uploaded_file:
-        payload.append({"mime_type": "image/jpeg", "data": uploaded_file.getvalue()})
+        payload.append(types.Part.from_bytes(
+            data=uploaded_file.getvalue(), 
+            mime_type="image/jpeg"
+        ))
 
+    # Display User Input in Chat UI
     with st.chat_message("user"):
         if user_text: st.markdown(user_text)
         if audio_bytes: st.audio(audio_bytes)
         if uploaded_file: st.image(uploaded_file)
 
+    # Get Response
     with st.chat_message("assistant"):
         try:
+            # Now payload is a list of Part objects, which Gemini 2.5/SDK expects
             response = st.session_state.chat_session.send_message(message=payload)
             st.markdown(response.text)
             speak_text(response.text)
