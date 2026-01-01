@@ -41,7 +41,7 @@ with st.sidebar:
     
     # Reset Button to clear quota-heavy history
     if st.button("🗑️ Clear Chat"):
-        st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-1.5-flash")
+        st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-2.5-flash")
         st.rerun()
 
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
