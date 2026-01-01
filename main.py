@@ -61,6 +61,18 @@ for message in st.session_state.chat_session.get_history():
             if hasattr(part, 'text') and part.text:
                 st.markdown(part.text)
             
+            # 2. Handle Images safely
+            if hasattr(part, 'inline_data') and part.inline_data:
+                # FIX: Check if data is not None and has actual content
+                if part.inline_data.data: 
+                    try:
+                        st.image(part.inline_data.data)
+                    except Exception:
+                        # If PIL still fails, we skip it silently or show a placeholder
+                        st.warning("⚠️ Could not display a previously sent image.")
+                else:
+                    st.info("Empty image data received.")
+            
             # 2. Handle Images (Inline Data)
             if hasattr(part, 'inline_data') and part.inline_data:
                 try:
