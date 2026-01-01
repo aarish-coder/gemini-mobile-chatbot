@@ -57,16 +57,17 @@ for message in st.session_state.chat_session.get_history():
     role = "user" if message.role == "user" else "assistant"
     with st.chat_message(role):
         for part in message.parts:
-            if part.text:
+            # 1. Handle Text
+            if hasattr(part, 'text') and part.text:
                 st.markdown(part.text)
-            if part.inline_data:
-                # FIX: Decode base64 data to bytes before displaying
+            
+            # 2. Handle Images (Inline Data)
+            if hasattr(part, 'inline_data') and part.inline_data:
                 try:
-                    img_data = base64.b64decode(part.inline_data.data)
-                    st.image(img_data)
-                except Exception as e:
-                    # If it's already bytes, display it directly
+                    # Streamlit can handle the raw bytes directly from part.inline_data.data
                     st.image(part.inline_data.data)
+                except Exception as e:
+                    st.error(f"Error displaying history image: {e}")
                     
 # --- 5. INPUT HANDLING ---
 user_text = st.chat_input("Type here...")
