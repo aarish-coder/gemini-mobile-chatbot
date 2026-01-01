@@ -60,8 +60,14 @@ for message in st.session_state.chat_session.get_history():
             if part.text:
                 st.markdown(part.text)
             if part.inline_data:
-                st.image(part.inline_data.data)
-
+                # FIX: Decode base64 data to bytes before displaying
+                try:
+                    img_data = base64.b64decode(part.inline_data.data)
+                    st.image(img_data)
+                except Exception as e:
+                    # If it's already bytes, display it directly
+                    st.image(part.inline_data.data)
+                    
 # --- 5. INPUT HANDLING ---
 user_text = st.chat_input("Type here...")
 
