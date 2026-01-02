@@ -61,17 +61,14 @@ for message in st.session_state.chat_session.get_history():
             if hasattr(part, 'text') and part.text:
                 st.markdown(part.text)
             
-            # 2. Handle Images (The fix for PIL.UnidentifiedImageError)
+            # 2. Handle Images (Safe Rendering)
             if hasattr(part, 'inline_data') and part.inline_data:
-                try:
-                    # Gemini sends history images as base64 strings
-                    # We decode that string back into image bytes
-                    img_data = base64.b64decode(part.inline_data.data)
-                    st.image(img_data)
-                except Exception:
-                    # Fallback: if it's already bytes, st.image handles it
-                    st.image(part.inline_data.data)
-                    
+                if part.inline_data.data:
+                    try:
+                        # Streamlit is smart: it accepts both bytes and b64 strings
+                        st.image(part.inline_data.data)
+                    except Exception:
+                        st.warning("⚠️ Could not display a previous image.")
 # --- 5. INPUT HANDLING ---
 user_text = st.chat_input("Type here...")
 
