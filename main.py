@@ -19,9 +19,16 @@ if not GEMINI_API_KEY:
 if "gemini_client" not in st.session_state:
     st.session_state.gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
-# Use 1.5-flash to avoid daily quota limits
+# THE FIX: Always use 2.0-flash and set a "System Instruction"
+MODEL_ID = "gemini-2.0-flash" 
+
 if "chat_session" not in st.session_state:
-    st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-2.0-flash")
+    st.session_state.chat_session = st.session_state.gemini_client.chats.create(
+        model=MODEL_ID,
+        config={
+            "system_instruction": "You are Spark, a helpful and concise AI assistant. You can see images and hear audio. Always introduce yourself as Spark."
+        }
+    )
 
 # --- 2. VOICE OUTPUT ---
 def speak_text(text):
