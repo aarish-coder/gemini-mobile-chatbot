@@ -114,15 +114,22 @@ if user_text or audio_bytes or uploaded_file:
         if audio_bytes: st.audio(audio_bytes)
         if uploaded_file: st.image(uploaded_file)
 
-    # --- GET RESPONSE FROM GEMINI ---
+# --- GET RESPONSE FROM GEMINI ---
     with st.chat_message("assistant"):
         try:
-            # send_message maintains chat history automatically
-            response = st.session_state.chat_session.send_message(message=payload)
+            # 1. Add a spinner so you know Spark is working
+            with st.spinner("Spark is thinking..."):
+                # send_message maintains chat history automatically
+                response = st.session_state.chat_session.send_message(message=payload)
             
+            # 2. Display and Speak the response
             if response.text:
                 st.markdown(response.text)
                 speak_text(response.text)
             
         except Exception as e:
-            st.error(f"Gemini Error: {e}")
+            # 3. Specific fix for the 429 "Resource Exhausted" error
+            if "429" in str(e):
+                st.error("⏳ Quota Limit Reached: The Free Tier is currently busy. Please wait about 60 seconds and try again.")
+            else:
+                st.error(f"Gemini Error: {e}")
