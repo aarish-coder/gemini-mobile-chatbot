@@ -1,135 +1,78 @@
 import streamlit as st
 import os
-import io
-import base64
 from google import genai
-from audio_recorder_streamlit import audio_recorder
-from gtts import gTTS
+from google.genai.errors import APIError
 
-# --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Spark AI", page_icon="🤖")
-st.title("🤖 Spark: Voice & Vision AI")
+# --- 1. CONFIGURATION AND INITIALIZATION ---
 
+st.title("🤖 Spark: Your Friendly AI Assistant")
+def stream_text_generator(response_stream):
+    """
+    A generator that extracts only the text from the streamed chunks.
+    """
+    for chunk in response_stream:
+        # Check if the chunk has text content before yielding
+        if chunk.text:
+            yield chunk.text
+
+
+# Retrieve the API key
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
-    st.error("🚨 API Key Missing! Set it in Streamlit Secrets.")
+    # Stop execution if the key is missing
+    st.error("🚨 **API Key Missing!** 🚨\nPlease set the `GEMINI_API_KEY` environment variable in your terminal before running the app.")
     st.stop()
 
+# Initialize Gemini client and store in session_state
 if "gemini_client" not in st.session_state:
-    st.session_state.gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-
-# THE FIX: Always use 2.0-flash and set a "System Instruction"
-MODEL_ID = "gemini-2.0-flash" 
-
-if "chat_session" not in st.session_state:
-    st.session_state.chat_session = st.session_state.gemini_client.chats.create(
-        model=MODEL_ID,
-        config={
-            "system_instruction": "You are Spark, a helpful and concise AI assistant. You can see images and hear audio. Always introduce yourself as Spark."
-        }
-    )
-
-# --- 2. VOICE OUTPUT ---
-def speak_text(text):
     try:
-        tts = gTTS(text=text, lang='en')
-        fp = io.BytesIO()
-        tts.write_to_fp(fp)
-        b64 = base64.b64encode(fp.getvalue()).decode()
-        md = f'<audio autoplay="true" src="data:audio/mp3;base64,{b64}">'
-        st.markdown(md, unsafe_allow_html=True)
+        st.session_state.gemini_client = genai.Client(api_key=GEMINI_API_KEY)
     except Exception as e:
-        st.error(f"TTS Error: {e}")
+        st.error(f"Error initializing Gemini client: {e}")
+        st.stop()
 
-# --- 3. UI SIDEBAR ---
-with st.sidebar:
-    st.header("🎙️ Voice & 📸 Vision")
-    
-    # Reset Button to clear quota-heavy history
-    if st.button("🗑️ Clear Chat"):
-        st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-2.0-flash")
-        st.rerun()
+# Create chat session only once, using the fast and efficient gemini-2.5-flash model
+if "chat_session" not in st.session_state:
+    try:
+        st.session_state.chat_session = st.session_state.gemini_client.chats.create(model="gemini-2.5-flash")
+    except Exception as e:
+        st.error(f"Error creating chat session: {e}")
+        st.stop()
 
-    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
-    if uploaded_file:
-        st.image(uploaded_file, caption="Image Ready")
-    
-    st.divider()
-    st.write("Push to Speak:")
-    audio_bytes = audio_recorder(text="", icon_size="3x")
 
-# --- 4. CHAT HISTORY ---
+# --- 2. DISPLAY CHAT HISTORY ---
+
+# Iterate through the history of the chat session to display previous messages
 for message in st.session_state.chat_session.get_history():
+    # Map the Gemini 'user' and 'model' roles to Streamlit 'user' and 'assistant' roles
     role = "user" if message.role == "user" else "assistant"
     with st.chat_message(role):
-        for part in message.parts:
-            # 1. Handle Text
-            if hasattr(part, 'text') and part.text:
-                st.markdown(part.text)
-            
-            # 2. Handle Images (Safe Rendering)
-            if hasattr(part, 'inline_data') and part.inline_data:
-                if part.inline_data.data:
-                    try:
-                        # Streamlit is smart: it accepts both bytes and b64 strings
-                        st.image(part.inline_data.data)
-                    except Exception:
-                        st.warning("⚠️ Could not display a previous image.")
-# --- 5. INPUT HANDLING ---
-user_text = st.chat_input("Type here...")
+        st.markdown(message.parts[0].text)
 
-# This check ensures we only run logic if there's actually new input
-if user_text or audio_bytes or uploaded_file:
-    from google.genai import types 
-    payload = []
-    
-    # 1. Handle Text Input
-    if user_text:
-        payload.append(types.Part.from_text(text=user_text))
-    
-    # 2. Handle Audio Input
-    if audio_bytes:
-        payload.append(types.Part.from_bytes(
-            data=audio_bytes, 
-            mime_type="audio/wav"
-        ))
-        if not user_text:
-            payload.append(types.Part.from_text(text="Please respond to this voice message."))
+# --- 3. HANDLE NEW USER INPUT ---
 
-    # 3. Handle Image Input
-    if uploaded_file:
-        # Check if file is larger than 10MB as a safety measure
-        if uploaded_file.size > 10 * 1024 * 1024:
-            st.error("File is too large! Please upload an image under 10MB.")
-        else:
-            payload.append(types.Part.from_bytes(
-                data=uploaded_file.getvalue(), 
-                mime_type="image/jpeg"
-            ))
+user_prompt = st.chat_input("Say something to Spark...")
 
-    # --- DISPLAY USER INPUT IN CHAT ---
+if user_prompt:
+    # Display the user's prompt immediately
     with st.chat_message("user"):
-        if user_text: st.markdown(user_text)
-        if audio_bytes: st.audio(audio_bytes)
-        if uploaded_file: st.image(uploaded_file)
+        st.markdown(user_prompt)
 
-# --- GET RESPONSE FROM GEMINI ---
+    # Prepare to display the assistant's response
     with st.chat_message("assistant"):
         try:
-            # 1. Add a spinner so you know Spark is working
-            with st.spinner("Spark is thinking..."):
-                # send_message maintains chat history automatically
-                response = st.session_state.chat_session.send_message(message=payload)
-            
-            # 2. Display and Speak the response
-            if response.text:
-                st.markdown(response.text)
-                speak_text(response.text)
-            
-        except Exception as e:
-            # 3. Specific fix for the 429 "Resource Exhausted" error
-            if "429" in str(e):
-                st.error("⏳ Quota Limit Reached: The Free Tier is currently busy. Please wait about 60 seconds and try again.")
+            response_stream = st.session_state.chat_session.send_message_stream(user_prompt)
+            st.write_stream(stream_text_generator(response_stream))
+        except APIError as e:
+            # Handle specific API errors gracefully
+            if "400" in str(e) and "API key not valid" in str(e):
+                st.error("🔑 **Authentication Error** 🔑\n\nYour API key appears to be invalid. Please check your `GEMINI_API_KEY` environment variable.")
+            elif "503 UNAVAILABLE" in str(e):
+                st.error("⚠️ **Model Overload Error** ⚠️\n\nThe AI model is temporarily overloaded. Please wait a moment and try your query again.")
             else:
-                st.error(f"Gemini Error: {e}")
+                st.error(f"An unexpected API error occurred: {e}")
+                
+        except Exception as e:
+            # Handle general Python exceptions
+            st.error(f"An unexpected error occurred: {e}")
